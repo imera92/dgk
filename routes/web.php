@@ -11,11 +11,14 @@
 |
 */
 
-Route::get('/', function () {
-    return view('welcome');
-});
-
+Route::get('test', 'WebController@test');
 
 Route::group(['prefix' => 'admin'], function () {
     Voyager::routes();
+
+	// Metadata Routes
+	Route::resource('metadata', 'Voyager\MetadataController');
+    Route::group(['prefix' => 'metadata'], function () {
+		Route::post('/tables', 'Voyager\MetadataController@tables');
+    });
 });
