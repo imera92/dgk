@@ -12,9 +12,9 @@ class Database extends Model
     	return $this->belongsTo('App\System');
     }
 
-    public function metadata()
+    public function tables()
     {
-        return $this->hasMany('App\Metadata');
+        return $this->hasMany('App\Table');
     }
 
     /*protected function setKeysForSaveQuery(Builder $query)

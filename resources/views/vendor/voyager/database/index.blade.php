@@ -1,13 +1,13 @@
 @extends('voyager::master')
 
-@section('page_title', 'Metadata')
+@section('page_title', 'Bases de Datos')
 
 @section('page_header')
-    <h1 class="page-title"><i class="voyager-file-text"></i>Metadata</h1>
-    @can('add_metadata', \App\TableMetadata::class)
-        <a href="{{ url('admin/metadata/create') }}" class="btn btn-success"><i class="voyager-plus"></i>Añadir Metadata</a>
+    <h1 class="page-title"><i class="voyager-data"></i>Bases de Datos</h1>
+    @can('add_db', \App\Database::class)
+        <a href="{{ url('admin/db/create') }}" class="btn btn-success"><i class="voyager-plus"></i> Registrar una Base de Datos</a>
     @endcan
-    @can('delete_metadata', \App\TableMetadata::class)
+    @can('delete_db', \App\Database::class)
         <a class="btn btn-danger" id="bulk_delete_btn"><i class="voyager-trash"></i> <span>Borrar por lotes</span></a>
     @endcan
 @stop
@@ -23,34 +23,34 @@
     		                	<thead>
     		                		<tr>
                                         <th><input type="checkbox" class="select_all"></th>
-    		                			<th>Tabla</th>
-    		                			<th>Base de Datos</th>
     		                			<th>Sistema</th>
-    		                			<th>Fecha de Creación</th>
+    		                			<th>Nombre</th>
+    		                			<th>Host</th>
+                                        <th>Motor</th>
     		                			<th class="actions text-right">Acciones</th>
     		                		</tr>
     		                	</thead>
     		                	<tbody>
-                                    @foreach($all_metadata as $metadata)
+                                    @foreach($all_databases as $database)
                                         <tr>
-                                            <td><input type="checkbox" name="row_id" id="checkbox_{{ $metadata->id }}" value="{{ $metadata->id }}"></td>
-                                            <td>{{ $metadata->table->name }}</td>
-                                            <td>{{ $metadata->table->database->name }}</td>
-                                            <td>{{ $metadata->table->database->system->name }}</td>
-                                            <td>{{ $metadata->created_at }}</td>
+                                            <td><input type="checkbox" name="row_id" id="checkbox_{{ $database->id }}" value="{{ $database->id }}"></td>
+                                            <td>{{ $database->system->name }}</td>
+                                            <td>{{ $database->name }}</td>
+                                            <td>{{ $database->host }}</td>
+                                            <td>{{ $drivers[$database->driver] }}</td>
                                             <td class="no-sort no-click" id="bread-actions">
-                                                @can('delete_metadata', $metadata)
-                                                    <a class="btn btn-sm btn-danger pull-right delete" href="#" title="Borrar" data-id="{{ $metadata->id }}" id="delete-{{ $metadata->id }}">
+                                                @can('delete_db', $database)
+                                                    <a class="btn btn-sm btn-danger pull-right delete" href="#" title="Borrar" data-id="{{ $database->id }}" id="delete-{{ $database->id }}">
                                                         <i class="voyager-trash"></i> <span class="hidden-xs hidden-sm">Borrar</span>
                                                     </a>
                                                 @endcan
-                                                @can('edit_metadata', $metadata)
-                                                    <a class="btn btn-sm btn-primary pull-right edit" href="{{ url('admin/metadata/' . $metadata->id) . '/edit' }}" title="Editar">
+                                                @can('edit_db', $database)
+                                                    <a class="btn btn-sm btn-primary pull-right edit" href="{{ url('admin/db/' . $database->id) . '/edit' }}" title="Editar">
                                                         <i class="voyager-edit"></i> <span class="hidden-xs hidden-sm">Editar</span>
                                                     </a>
                                                 @endcan
-                                                @can('read_metadata', $metadata)
-                                                    <a class="btn btn-sm btn-warning pull-right view" href="{{ url('admin/metadata/' . $metadata->id) }}" title="Ver">
+                                                @can('read_db', $database)
+                                                    <a class="btn btn-sm btn-warning pull-right view" href="{{ url('admin/db/' . $database->id) }}" title="Ver">
                                                         <i class="voyager-eye"></i> <span class="hidden-xs hidden-sm">Ver</span>
                                                     </a>
                                                 @endcan
@@ -71,7 +71,7 @@
             <div class="modal-content">
                 <div class="modal-header">
                     <button type="button" class="close" data-dismiss="modal" aria-label="close"><span aria-hidden="true">&times;</span></button>
-                    <h4 class="modal-title"><i class="voyager-trash"></i> ¿Está seguro de querer borrar este registro?</h4>
+                    <h4 class="modal-title"><i class="voyager-trash"></i> Se borrarán todas las tablas relacionadas a esta base de datos ¿Desea continuar?</h4>
                 </div>
                 <div class="modal-footer">
                     <form action="#" id="delete_form" method="POST">
@@ -93,13 +93,13 @@
                     <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span
                                 aria-hidden="true">&times;</span></button>
                     <h4 class="modal-title">
-                        <i class="voyager-trash"></i> ¿Está seguro de querer borrar <span id="bulk_delete_count_display"></span>?
+                        <i class="voyager-trash"></i> Se borrarán todas las tablas relacionadas a estas <span id="bulk_delete_count_display"></span> bases de datos ¿Desea continuar?
                     </h4>
                 </div>
                 <div class="modal-body" id="bulk_delete_modal_body">
                 </div>
                 <div class="modal-footer">
-                    <form action="/admin/metadata/0" id="bulk_delete_form" method="POST">
+                    <form action="/admin/db/0" id="bulk_delete_form" method="POST">
                         @method('DELETE')
                         <!-- CSRF TOKEN -->
                         {{ csrf_field() }}
@@ -123,7 +123,7 @@
                 "columnDefs": [{"targets": -1, "searchable":  false, "orderable": false}]
             });
             $('td').on('click', '.delete', function (e) {
-                $('#delete_form')[0].action = '/admin/metadata/' + $(this).data('id');
+                $('#delete_form')[0].action = '/admin/db/' + $(this).data('id');
                 $('#delete_modal').modal('show');
             });
             $('.select_all').on('click', function(e) {

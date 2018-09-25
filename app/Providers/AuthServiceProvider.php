@@ -14,7 +14,8 @@ class AuthServiceProvider extends ServiceProvider
      */
     protected $policies = [
         'App\Model' => 'App\Policies\ModelPolicy',
-        'App\Metadata' => 'App\Policies\VoyagerCustomPolicy'
+        'App\TableMetadata' => 'App\Policies\Voyager\MetadataPolicy',
+        'App\Database' => 'App\Policies\Voyager\DatabasePolicy'
     ];
 
     /**

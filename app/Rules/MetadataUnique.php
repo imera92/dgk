@@ -3,7 +3,7 @@
 namespace App\Rules;
 
 use Illuminate\Contracts\Validation\Rule;
-use App\Metadata;
+use App\TableMetadata;
 
 class MetadataUnique implements Rule
 {

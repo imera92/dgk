@@ -1,13 +1,13 @@
 <?php
 
-namespace App\Policies;
+namespace App\Policies\Voyager;
 
 use App\User;
-use App\Metadata;
+use App\TableMetadata;
 use Illuminate\Auth\Access\HandlesAuthorization;
 use TCG\Voyager\Facades\Voyager;
 
-class VoyagerCustomPolicy
+class MetadataPolicy
 {
     use HandlesAuthorization;
 
@@ -25,10 +25,10 @@ class VoyagerCustomPolicy
      * Determine if the given metadata can be read by the user.
      *
      * @param  \App\User  $user
-     * @param  \App\Metadata  $metadata
+     * @param  \App\TableMetadata  $metadata
      * @return bool
      */
-    public function read_metadata(User $user, Metadata $metadata)
+    public function read_metadata(User $user, TableMetadata $metadata)
     {
         return Voyager::can('read_metadata');
     }
@@ -37,10 +37,10 @@ class VoyagerCustomPolicy
      * Determine if the given metadata can be edited by the user.
      *
      * @param  \App\User  $user
-     * @param  \App\Metadata  $metadata
+     * @param  \App\TableMetadata  $metadata
      * @return bool
      */
-    public function edit_metadata(User $user, Metadata $metadata)
+    public function edit_metadata(User $user, TableMetadata $metadata)
     {
         return Voyager::can('edit_metadata');
     }
@@ -60,10 +60,10 @@ class VoyagerCustomPolicy
      * Determine if the given metadata can be deleted by the user.
      *
      * @param  \App\User  $user
-     * @param  \App\Metadata  $metadata
+     * @param  \App\TableMetadata  $metadata
      * @return bool
      */
-    public function delete_metadata(User $user, Metadata $metadata = null)
+    public function delete_metadata(User $user, TableMetadata $metadata = null)
     {
         return Voyager::can('delete_metadata');
     }

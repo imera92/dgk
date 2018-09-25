@@ -24,7 +24,7 @@
         		    	<h3 class="panel-title">Tabla</h3>
             		</div>
             		<div class="panel-body" style="padding-top:0;">
-            			<p>{{ $metadata->database->system->name . ' - ' . $metadata->database->name . ':' . $metadata->database->host . ':' . $metadata->database->port . ' - ' . $metadata->table_name }}</p>
+            			<p>{{ $system_name . ' - ' . $database_name . ' - ' . $table_name }}</p>
         			</div>
         			<!-- panel-body -->
         			<hr style="margin:0;">
@@ -75,8 +75,64 @@
             			<p>{{ $access }}</p>
         			</div>
         			<!-- panel-body -->
-        			<hr style="margin:0;">
+                    <hr style="margin:0;">
+                    <div class="panel-heading" style="border-bottom:0;">
+                        <h3 class="panel-title">Tags</h3>
+                    </div>
+                    <div class="panel-body" style="padding-top:0;">
+                        @foreach($table_tags as $tag)
+                            <span class="label label-primary">{{ $tag->slug }}</span>
+                        @endforeach
+                    </div>
         		</div>
+            </div>
+        </div>
+    </div>
+    <h1 class="page-title"><i class="voyager-window-list"></i>Columnas</h1>
+    <div class="page-content read container-fluid">
+        <div class="row">
+            <div class="col-md-12">
+                @foreach($columns as $column)
+                    <div class="panel panel-bordered" style="padding-bottom:5px;">
+                        <h3 class="panel-title">{{ $column->name }}</h3>
+                        <!-- panel-body -->
+                        <hr style="margin:0;">
+                        <div class="panel-heading" style="border-bottom:0;">
+                            <h3 class="panel-title">Validez</h3>
+                        </div>
+                        <div class="panel-body" style="padding-top:0;">
+                            {{ ($column->metadata->validity == '')?'N/A':$column->metadata->validity }}
+                        </div>
+                        <!-- panel-body -->
+                        <hr style="margin:0;">
+                        <div class="panel-heading" style="border-bottom:0;">
+                            <h3 class="panel-title">Reglas</h3>
+                        </div>
+                        <div class="panel-body" style="padding-top:0;">
+                            @if($column->metadata->validity == '')
+                                {{ 'N/A' }}
+                            @else
+                                {!! $column->metadata->rules !!}
+                            @endif
+                        </div>
+                        <!-- panel-body -->
+                        <hr style="margin:0;">
+                        <div class="panel-heading" style="border-bottom:0;">
+                            <h3 class="panel-title">Tags</h3>
+                        </div>
+                        <div class="panel-body" style="padding-top:0;">
+                            @if($column->tags->isEmpty())
+                                {{ 'N/A' }}
+                            @else
+                                @foreach($column->tags as $tag)
+                                    @if(!is_null($tag))
+                                        <span class="label label-primary">{{ $tag->slug }}</span>
+                                    @endif
+                                @endforeach
+                            @endif
+                        </div>
+                    </div>
+                @endforeach
             </div>
         </div>
     </div>

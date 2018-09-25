@@ -9,7 +9,10 @@ use App\Http\Controllers\Controller;
 use TCG\Voyager\Facades\Voyager;
 use App\System;
 use App\Database;
-use App\Metadata;
+use App\Table;
+use App\Column;
+use App\TableMetadata;
+use App\ColumnMetadata;
 use App\Rules\MetadataUnique;
 
 class MetadataController extends Controller
@@ -28,7 +31,7 @@ class MetadataController extends Controller
             'transaction' =>  'Transacción',
             'batch' => 'Batch',
             'dwh' => 'Data Warehouse'
-        ];   
+        ];
     }
 
     /**
@@ -40,7 +43,7 @@ class MetadataController extends Controller
     {
         Voyager::canOrFail('browse_metadata');
 
-        $all_metadata = Metadata::all();
+        $all_metadata = TableMetadata::all();
 
         return view('vendor.voyager.metadata.index', [
             'all_metadata' => $all_metadata
@@ -73,7 +76,7 @@ class MetadataController extends Controller
      */
     public function store(Request $request)
     {
-        $validator = $request->validate([
+        /*$validator = $request->validate([
             'db_id' => 'required',
             'table' => ['required', new MetadataUnique($request->input('db_id'))],
             'retention_policy' => 'required',
@@ -82,24 +85,58 @@ class MetadataController extends Controller
             'manager' => 'required',
             'relevance' => 'required',
             'access' => 'required'
+        ]);*/
+
+        // dd($request->input());
+
+        // Retrieve the columns and table metadata from request
+        $metadata_table = $request->input('table');
+        $metadata_columns = $request->input('columns');
+        // Find the requested table
+        $table = Table::find($metadata_table['table_id']);
+        // Create and save the table metadata
+        $table_meta = new TableMetadata();
+        $table_meta->retention_policy = $metadata_table['retention_policy'];
+        $table_meta->debug_policy = $metadata_table['debug_policy'];
+        $table_meta->dependencies = $metadata_table['dependencies'];
+        $table_meta->manager = $metadata_table['manager'];
+        $table_meta->relevance = $metadata_table['relevance'];
+        $table_meta->access = $metadata_table['access'];
+        //$table_meta->table()->associate($table);
+        $table->metadata()->save($table_meta);
+        $table_meta->save();
+        // Save table metadata tags
+        //$tags = explode(',', $request->input('tags'));
+        if (!empty($metadata_table['tags'])) {
+            $table->tag($metadata_table['tags']);
+            foreach($table->tags as $tag) {
+                $tag->setGroup('TableTags');
+            }
+        }
+
+        // Find the requested columns
+        foreach ($metadata_columns as $column_id => $metadata) {
+            $column = Column::find($column_id);
+            // Create and save the column metadata
+            $column_meta = new ColumnMetadata();
+            $column_meta->rules = (is_null($metadata['rules']))?'':$metadata['rules'];
+            $column_meta->validity = (is_null($metadata['validity']))?'':$metadata['validity'];
+            // $column_meta->column()->associate($column);
+            $column->metadata()->save($column_meta);
+            $column_meta->save();
+            // Save column metadata tags
+            if (!empty($metadata['tags'])) {
+                $column->tag($metadata['tags']);
+                foreach($column->tags as $tag) {
+                    $tag->setGroup('ColumnTags');
+                }
+            }
+        }
+
+        // return redirect('admin/metadata');
+        return response()->json([
+            'error' => 0
         ]);
-
-        $metadata = new Metadata();
-        $metadata->table_name = $request->input('table');
-        $metadata->retention_policy = $request->input('retention_policy');
-        $metadata->debug_policy = $request->input('debug_policy');
-        $metadata->dependencies = $request->input('dependencies');
-        $metadata->manager = $request->input('manager');
-        $metadata->relevance = $request->input('relevance');
-        $metadata->access = $request->input('access');
-        $metadata->tags = '';
-        $metadata->status = '';
-        $database = Database::find($request->input('db_id'));
-        $metadata->database()->associate($database);
-        $database->metadata()->save($metadata);
-        $metadata->save();
-
-        return redirect('admin/metadata');
     }
 
     /**
@@ -112,12 +149,25 @@ class MetadataController extends Controller
     {
         Voyager::canOrFail('read_metadata');
 
-        $metadata = Metadata::find($id);
+        $metadata = TableMetadata::find($id);
+        $table = $metadata->table;
+        /*$columns = [];
+        foreach ($table->columns as $column) {
+            if (!is_null($column->metadata)) {
+                array_push($columns, $column);
+            }
+        }*/
+        $columns = $table->columns()->whereHas('metadata')->get();
         $relevance = $this->relevance_options[$metadata->relevance];
         $access = $this->access_options[$metadata->access];
 
         return view('vendor.voyager.metadata.read', [
+            'system_name' => $table->database->system->name,
+            'database_name' => $table->database->name,
+            'table_name' => $table->name,
+            'table_tags' => $table->tags,
             'metadata' => $metadata,
+            'columns' => $columns,
             'relevance' => $relevance,
             'access' => $access
         ]);
@@ -133,35 +183,18 @@ class MetadataController extends Controller
     {
         Voyager::canOrFail('edit_metadata');
 
-        $metadata = Metadata::find($id);
+        $metadata = TableMetadata::find($id);
+        $meta_table = $metadata->table;
+        $meta_columns = $metadata->table->columns;
+        $table_tags = $metadata->table->tagsToString();
         $systems = System::all();
-        // Build database configuration
-        $db_settings = [
-            "driver" => $metadata->database->driver,
-            "host" => $metadata->database->host,
-            "port" => $metadata->database->port,
-            "database" => $metadata->database->name,
-            "username" => $metadata->database->user,
-            "password" => $metadata->database->password,
-            "unix_socket" => "",
-            "charset" => $metadata->database->charset,
-            "collation" => $metadata->database->collation,
-            "prefix" => "",
-            "strict" => true,
-            "engine" => null
-        ];
-        // Set database configuration
-        Config::set('database.connections.' . $metadata->database->name, $db_settings);
-        // Query database tables
-        $result = DB::connection($metadata->database->name)->select('SHOW TABLES');
-        // DB facade returns stdObject, so a simpler array should be built
-        $tables = [];
-        foreach ($result as $row) {
-            array_push($tables, $row->{'Tables_in_' . $metadata->database->name});
-        }
+        $tables = $metadata->table->database->tables;
 
         return view('vendor.voyager.metadata.edit-add', [
             'metadata' => $metadata,
+            'meta_table' => $meta_table,
+            'meta_columns' => $meta_columns,
+            'table_tags' => $table_tags,
             'systems' => $systems,
             'tables' => $tables,
             'relevance_options' => $this->relevance_options,
@@ -178,33 +211,54 @@ class MetadataController extends Controller
      */
     public function update(Request $request, $id)
     {
-        $validator = $request->validate([
-            'db_id' => 'required',
-            'table' => ['required', new MetadataUnique($request->input('db_id'), $id)],
-            'retention_policy' => 'required',
-            'debug_policy' => 'required',
-            'dependencies' => 'required',
-            'manager' => 'required',
-            'relevance' => 'required',
-            'access' => 'required'
+        // Retrieve the columns and table metadata from request
+        $metadata_table = $request->input('table');
+        $metadata_columns = $request->input('columns');
+
+        // Create and save the table metadata
+        $table_meta = TableMetadata::find($id);
+        $table_meta->retention_policy = $metadata_table['retention_policy'];
+        $table_meta->debug_policy = $metadata_table['debug_policy'];
+        $table_meta->dependencies = $metadata_table['dependencies'];
+        $table_meta->manager = $metadata_table['manager'];
+        $table_meta->relevance = $metadata_table['relevance'];
+        $table_meta->access = $metadata_table['access'];
+        $table_meta->save();
+        // Save table metadata tags
+        $table_meta->table->retag($metadata_table['tags']);
+        foreach($table_meta->table->tags as $tag) {
+            $tag->setGroup('TableTags');
+        }
+
+        // Find the requested columns
+        foreach ($metadata_columns as $column_id => $metadata) {
+            $column = Column::find($column_id);
+            if (is_null($column->metadata)) {
+                $column_meta = new ColumnMetadata();
+            } else {
+                $column_meta = $column->metadata;
+            }
+            $column_meta->rules = (is_null($metadata['rules']))?'':$metadata['rules'];
+            $column_meta->validity = (is_null($metadata['validity']))?'':$metadata['validity'];
+            if (is_null($column->metadata)) {
+                $column->metadata()->save($column_meta);
+            }
+            $column_meta->save();
+            // Save column metadata tags
+            if (!empty($metadata['tags'])) {
+                $column->retag($metadata['tags']);
+                foreach($column->tags as $tag) {
+                    $tag->setGroup('ColumnTags');
+                }
+            } else {
+                $column->untag();
+            }
+        }
+
+        // return redirect('admin/metadata');
+        return response()->json([
+            'error' => 0
         ]);
-
-        $metadata = Metadata::find($id);
-        $metadata->table_name = $request->input('table');
-        $metadata->retention_policy = $request->input('retention_policy');
-        $metadata->debug_policy = $request->input('debug_policy');
-        $metadata->dependencies = $request->input('dependencies');
-        $metadata->manager = $request->input('manager');
-        $metadata->relevance = $request->input('relevance');
-        $metadata->access = $request->input('access');
-        $metadata->tags = '';
-        $metadata->status = '';
-        $database = Database::find($request->input('db_id'));
-        $metadata->database()->associate($database);
-        $database->metadata()->save($metadata);
-        $metadata->save();
-
-        return redirect('admin/metadata');
     }
 
     /**
@@ -226,17 +280,33 @@ class MetadataController extends Controller
             $ids = explode(',', $ids_str);
             // Delete the data
             foreach($ids as $id){
-                Metadata::destroy($id);
+                $table_metadata = TableMetadata::find($id);
+                $table_metadata->table->untag();
+                foreach ($table_metadata->table->columns as $column) {
+                    $column->untag();
+                    if (!is_null($column->metadata)) {
+                        $column->metadata->delete();
+                    }
+                }
+                TableMetadata::destroy($id);
             }
         } else {
-            Metadata::destroy($id);
+            $table_metadata = TableMetadata::find($id);
+            $table_metadata->table->untag();
+            foreach ($table_metadata->table->columns as $column) {
+                $column->untag();
+                if (!is_null($column->metadata)) {
+                    $column->metadata->delete();
+                }
+            }
+            TableMetadata::destroy($id);
         }
 
         return redirect('admin/metadata');
     }
 
     /**
-     * Retrieve all the tables corresponding to the 'App\Database' instances in storage.
+     * Retrieve all the tables corresponding to an 'App\Database' instance in storage.
      *
      * @param  \Illuminate\Http\Request  $request
      * @return \Illuminate\Http\Response
@@ -246,34 +316,35 @@ class MetadataController extends Controller
         if($request->has(['db_id'])){
             // Get database id from request
             $db_id = $request->input('db_id');
-            // Get requested database configuration
+            // Get requested database instance
             $database = Database::find($db_id);
-            $db_settings = [
-                "driver" => $database->driver,
-                "host" => $database->host,
-                "port" => $database->port,
-                "database" => $database->name,
-                "username" => $database->user,
-                "password" => $database->password,
-                "unix_socket" => "",
-                "charset" => $database->charset,
-                "collation" => $database->collation,
-                "prefix" => "",
-                "strict" => true,
-                "engine" => null
-            ];
-            // Set database configuration
-            Config::set('database.connections.' . $database->name, $db_settings);
-            // Query database tables
-            $result = DB::connection($database->name)->select('SHOW TABLES');
-            // DB facade returns stdObject, so a simpler array should be built
-            $tables = [];
-            foreach ($result as $row) {
-                array_push($tables, $row->{'Tables_in_' . $database->name});
-            }
+            // Get an array of tables
+            $tables = $database->tables;
             // Return array of tables
             return response()->json([
                 'ans' => $tables
+            ]);
+        }
+    }
+
+    /**
+     * Retrieve all the columns corresponding to a table from an 'App\Table' instance.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @return \Illuminate\Http\Response
+     */
+    public function columns(Request $request)
+    {
+        if($request->has(['table_id'])){
+            // Get table id from request
+            $table_id = $request->input('table_id');
+            // Get requested table instance
+            $table = Table::find($table_id);
+            // Get an array of tables
+            $columns = $table->columns;
+            // Return array of tables
+            return response()->json([
+                'ans' => $columns
             ]);
         }
     }
